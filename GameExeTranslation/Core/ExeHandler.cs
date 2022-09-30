@@ -16,144 +16,181 @@ namespace GameExeTranslation.Core
         private short sectorsNumber;
         private string exePath = "";
         private List<ExeSectorInfo> sectorInfoList = new List<ExeSectorInfo>();
+
         private const uint VIRTUAL_ADDRESS_CONST = 4096;
+        private const string OPENFILE_ERROR_MSG = "File is already opened.\nOperation cancelled.";
 
 
-        public string ExePath { get => exePath; set => exePath = value; }
+    public string ExePath { get => exePath; set => exePath = value; }
         public List<ExeSectorInfo> SectorInfoList { get => sectorInfoList; set => sectorInfoList = value; }
+
+        private bool CheckFileExist()
+        {
+            if (!File.Exists(exePath))
+            {
+                MessageBox.Show("The exe you are trying to open is not found.", "Error",
+                    MessageBoxButtons.OK, MessageBoxIcon.Error);
+                return false;
+            }
+            return true;
+        }
 
         public void GetExeInfo()
         {
-            using (BinaryReader reader = new BinaryReader(File.Open(exePath, FileMode.Open)))
+            if (CheckFileExist())
             {
-                reader.BaseStream.Seek(60, SeekOrigin.Begin);
-                exeHeaderPosition = reader.ReadInt32();
-                reader.BaseStream.Seek(exeHeaderPosition + 6, SeekOrigin.Begin);
-                sectorsNumber = reader.ReadInt16();
-                reader.BaseStream.Seek(exeHeaderPosition + 52, SeekOrigin.Begin);
-                imageBase = reader.ReadUInt32();
-                reader.BaseStream.Seek(exeHeaderPosition + 80, SeekOrigin.Begin);
-                imageSize = reader.ReadUInt32();
-                reader.BaseStream.Seek(exeHeaderPosition + 248, SeekOrigin.Begin);
-                sectorListPosition = (int)reader.BaseStream.Position;
-                for (int x = 0; x < sectorsNumber; ++x)
+                try
                 {
-                    ExeSectorInfo exeSectorInfo = new ExeSectorInfo(
-                        Encoding.ASCII.GetString(reader.ReadBytes(8)).Replace("\0",""),
-                        reader.ReadUInt32(),
-                        reader.ReadUInt32(),
-                        reader.ReadUInt32(),
-                        reader.ReadUInt32());
-                    reader.BaseStream.Seek(12, SeekOrigin.Current);
-                    exeSectorInfo.Flags = reader.ReadUInt32();
-                    sectorInfoList.Add(exeSectorInfo);
+                    using (BinaryReader reader = new BinaryReader(File.Open(exePath, FileMode.Open)))
+                    {
+                        reader.BaseStream.Seek(60, SeekOrigin.Begin);
+                        exeHeaderPosition = reader.ReadInt32();
+                        reader.BaseStream.Seek(exeHeaderPosition + 6, SeekOrigin.Begin);
+                        sectorsNumber = reader.ReadInt16();
+                        reader.BaseStream.Seek(exeHeaderPosition + 52, SeekOrigin.Begin);
+                        imageBase = reader.ReadUInt32();
+                        reader.BaseStream.Seek(exeHeaderPosition + 80, SeekOrigin.Begin);
+                        imageSize = reader.ReadUInt32();
+                        reader.BaseStream.Seek(exeHeaderPosition + 248, SeekOrigin.Begin);
+                        sectorListPosition = (int)reader.BaseStream.Position;
+                        for (int x = 0; x < sectorsNumber; ++x)
+                        {
+                            ExeSectorInfo exeSectorInfo = new ExeSectorInfo(
+                                Encoding.ASCII.GetString(reader.ReadBytes(8)).Replace("\0", ""),
+                                reader.ReadUInt32(),
+                                reader.ReadUInt32(),
+                                reader.ReadUInt32(),
+                                reader.ReadUInt32());
+                            reader.BaseStream.Seek(12, SeekOrigin.Current);
+                            exeSectorInfo.Flags = reader.ReadUInt32();
+                            sectorInfoList.Add(exeSectorInfo);
+                        }
+                        emptySectorPosition = (int)reader.BaseStream.Position;
+                    }
                 }
-                emptySectorPosition = (int)reader.BaseStream.Position;
-            }   
+                catch (IOException)
+                {
+                    MessageBox.Show(OPENFILE_ERROR_MSG, "Error",MessageBoxButtons.OK,MessageBoxIcon.Error);
+                }
+            } 
         }
 
         public void SaveTranslatedExe(List<ExeSectorText> exeSectorTextList)
         {
-            byte[] file = File.ReadAllBytes(exePath);
-            List<ExeSectorInfo> newSectorInfoList = new List<ExeSectorInfo>();
-            ExeSectorInfo prevExeSectorInfo = null;
-
-            using (MemoryStream ms = new MemoryStream())
+            if (CheckFileExist())
             {
-                using (BinaryWriter writer = new BinaryWriter(ms))
+                byte[] file = File.ReadAllBytes(exePath);
+                List<ExeSectorInfo> newSectorInfoList = new List<ExeSectorInfo>();
+                ExeSectorInfo prevExeSectorInfo = null;
+
+                using (MemoryStream ms = new MemoryStream())
                 {
-                    //Copy exe content
-                    writer.Write(file);
-
-                    //Write translated text for all writable sectors, and set writable sectors info
-                    foreach (ExeSectorText sector in exeSectorTextList)
+                    try
                     {
-                        ExeSectorInfo newSector = new ExeSectorInfo();
-                        newSector.Name = sector.Name;
-                        newSector.ROffset = (uint)writer.BaseStream.Position;
-
-                        foreach (ExeTextLine text in sector.TextList)
+                        using (BinaryWriter writer = new BinaryWriter(ms))
                         {
-                            text.TempOffset = writer.BaseStream.Position;
-                            if (text.IsFullWidth)
-                                writer.Write(Encoding.GetEncoding("shift_jis").GetBytes(CharWidthConverter.DBCToSBC(text.TranslatedText)));
-                            else
-                                writer.Write(Encoding.GetEncoding("shift_jis").GetBytes(CharWidthConverter.SBCToDBC(text.TranslatedText)));
-                            writer.Write((byte)0);
-                        }
+                            //Copy exe content
+                            writer.Write(file);
 
-                        if (prevExeSectorInfo == null)
-                            newSector.VOffset = CalculateVOffset(sectorInfoList.Last().VSize, sectorInfoList.Last().VOffset);
-                        else
-                            newSector.VOffset = CalculateVOffset(prevExeSectorInfo.VSize, prevExeSectorInfo.VOffset);
-
-                        newSector.RSize = (uint)writer.BaseStream.Position - newSector.ROffset;
-                        while (newSector.RSize % VIRTUAL_ADDRESS_CONST != 0)
-                        {
-                            writer.Write((byte)0);
-                            newSector.RSize++;
-                        }
-                        newSector.VSize = newSector.RSize;
-                        newSector.Flags = 0x40000040;
-                        prevExeSectorInfo = newSector;
-                        newSectorInfoList.Add(newSector);
-                    }
-
-                    //Write new sectors related data
-                    writer.BaseStream.Seek(exeHeaderPosition + 6, SeekOrigin.Begin);
-                    writer.Write((short)(sectorsNumber + (short)exeSectorTextList.Count));
-                    writer.BaseStream.Seek(exeHeaderPosition + 80, SeekOrigin.Begin);
-                    uint newImageSize = imageSize;
-                    newSectorInfoList.ForEach(p => newImageSize += p.RSize);
-                    writer.Write(newImageSize);
-                    writer.BaseStream.Seek(emptySectorPosition, SeekOrigin.Begin);
-                    foreach (ExeSectorInfo sector in newSectorInfoList)
-                    {
-                        string nameTemp = sector.Name;
-                        while (nameTemp.Length < 8)
-                            nameTemp += "\0";
-                        writer.Write(Encoding.ASCII.GetBytes(nameTemp));
-                        writer.Write(sector.VSize);
-                        writer.Write(sector.VOffset);
-                        writer.Write(sector.RSize);
-                        writer.Write(sector.ROffset);
-                        writer.Write((long)0);
-                        writer.Write(0);
-                        writer.Write(sector.Flags);
-                    }
-
-                    //Replace original text pointers with the new ones
-                    ExeSectorInfo readSectorInfo = null;
-                    uint readableSectorValue = 0;
-                    foreach (ExeSectorText sector in exeSectorTextList)
-                    {
-                        ExeSectorInfo writableSectorInfo = newSectorInfoList.Find(p => p.Name == sector.Name);
-                        uint writableSectorValue = imageBase + writableSectorInfo.VOffset - writableSectorInfo.ROffset;
-                        foreach (ExeTextLine text in sector.TextList)
-                        {
-                            if (readSectorInfo == null || readSectorInfo.Name != text.OriginalSector)
+                            //Write translated text for all writable sectors, and set writable sectors info
+                            foreach (ExeSectorText sector in exeSectorTextList)
                             {
-                                readSectorInfo = sectorInfoList.Find(p => p.Name == text.OriginalSector);
-                                readableSectorValue = imageBase + readSectorInfo.VOffset - readSectorInfo.ROffset;
-                            }
-                            uint oldPointer = (uint)(text.Offset + readableSectorValue);
-                            uint newPointer = (uint)(text.TempOffset + writableSectorValue);
+                                ExeSectorInfo newSector = new ExeSectorInfo();
+                                newSector.Name = sector.Name;
+                                newSector.ROffset = (uint)writer.BaseStream.Position;
 
-                            //Replace pointer inside desired sectors
-                            foreach (string searchSector in sector.SearchSectorList)
-                            {
-                                ExeSectorInfo searchSectorInfo = sectorInfoList.Find(p => p.Name == searchSector);
-                                ReplaceBytes(ms, writer, searchSectorInfo.ROffset, searchSectorInfo.RSize + searchSectorInfo.ROffset,
-                                    oldPointer, newPointer);
+                                foreach (ExeTextLine text in sector.TextList)
+                                {
+                                    text.TempOffset = writer.BaseStream.Position;
+                                    if (text.IsFullWidth)
+                                        writer.Write(Encoding.GetEncoding("shift_jis").GetBytes(CharWidthConverter.DBCToSBC(text.TranslatedText)));
+                                    else
+                                        writer.Write(Encoding.GetEncoding("shift_jis").GetBytes(CharWidthConverter.SBCToDBC(text.TranslatedText)));
+                                    writer.Write((byte)0);
+                                }
+
+                                if (prevExeSectorInfo == null)
+                                    newSector.VOffset = CalculateVOffset(sectorInfoList.Last().VSize, sectorInfoList.Last().VOffset);
+                                else
+                                    newSector.VOffset = CalculateVOffset(prevExeSectorInfo.VSize, prevExeSectorInfo.VOffset);
+
+                                newSector.RSize = (uint)writer.BaseStream.Position - newSector.ROffset;
+                                while (newSector.RSize % VIRTUAL_ADDRESS_CONST != 0)
+                                {
+                                    writer.Write((byte)0);
+                                    newSector.RSize++;
+                                }
+                                newSector.VSize = newSector.RSize;
+                                newSector.Flags = 0x40000040;
+                                prevExeSectorInfo = newSector;
+                                newSectorInfoList.Add(newSector);
                             }
+
+                            //Write new sectors related data
+                            writer.BaseStream.Seek(exeHeaderPosition + 6, SeekOrigin.Begin);
+                            writer.Write((short)(sectorsNumber + (short)exeSectorTextList.Count));
+                            writer.BaseStream.Seek(exeHeaderPosition + 80, SeekOrigin.Begin);
+                            uint newImageSize = imageSize;
+                            newSectorInfoList.ForEach(p => newImageSize += p.RSize);
+                            writer.Write(newImageSize);
+                            writer.BaseStream.Seek(emptySectorPosition, SeekOrigin.Begin);
+                            foreach (ExeSectorInfo sector in newSectorInfoList)
+                            {
+                                string nameTemp = sector.Name;
+                                while (nameTemp.Length < 8)
+                                    nameTemp += "\0";
+                                writer.Write(Encoding.ASCII.GetBytes(nameTemp));
+                                writer.Write(sector.VSize);
+                                writer.Write(sector.VOffset);
+                                writer.Write(sector.RSize);
+                                writer.Write(sector.ROffset);
+                                writer.Write((long)0);
+                                writer.Write(0);
+                                writer.Write(sector.Flags);
+                            }
+
+                            //Replace original text pointers with the new ones
+                            ExeSectorInfo readSectorInfo = null;
+                            uint readableSectorValue = 0;
+                            foreach (ExeSectorText sector in exeSectorTextList)
+                            {
+                                ExeSectorInfo writableSectorInfo = newSectorInfoList.Find(p => p.Name == sector.Name);
+                                uint writableSectorValue = imageBase + writableSectorInfo.VOffset - writableSectorInfo.ROffset;
+                                foreach (ExeTextLine text in sector.TextList)
+                                {
+                                    if (readSectorInfo == null || readSectorInfo.Name != text.OriginalSector)
+                                    {
+                                        readSectorInfo = sectorInfoList.Find(p => p.Name == text.OriginalSector);
+                                        readableSectorValue = imageBase + readSectorInfo.VOffset - readSectorInfo.ROffset;
+                                    }
+                                    uint oldPointer = (uint)(text.Offset + readableSectorValue);
+                                    uint newPointer = (uint)(text.TempOffset + writableSectorValue);
+
+                                    //Replace pointer inside desired sectors
+                                    foreach (string searchSector in sector.SearchSectorList)
+                                    {
+                                        ExeSectorInfo searchSectorInfo = sectorInfoList.Find(p => p.Name == searchSector);
+                                        ReplaceBytes(ms, writer, searchSectorInfo.ROffset, searchSectorInfo.RSize + searchSectorInfo.ROffset,
+                                            oldPointer, newPointer);
+                                    }
+                                }
+                            }
+
+                            //Write stream in new exe file
+                            string newExePath = Directory.GetParent(exePath).FullName + "\\" +
+                                Path.GetFileNameWithoutExtension(exePath) + "_translated.exe";
+                            using (FileStream fs = new FileStream(newExePath , FileMode.Create, FileAccess.Write))
+                            {
+                                ms.WriteTo(fs);
+                            }
+
+                            MessageBox.Show("Translated EXE correctly saved at:\n" + newExePath, "Information",
+                            MessageBoxButtons.OK, MessageBoxIcon.Information);
                         }
                     }
-
-                    //Write stream in new exe file
-                    using (FileStream fs = new FileStream(Directory.GetParent(exePath).FullName + "\\"+
-                        Path.GetFileNameWithoutExtension(exePath) + "_translated.exe", FileMode.Create, FileAccess.Write))
+                    catch (IOException)
                     {
-                        ms.WriteTo(fs);
+                        MessageBox.Show(OPENFILE_ERROR_MSG, "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
                     }
                 }
             }

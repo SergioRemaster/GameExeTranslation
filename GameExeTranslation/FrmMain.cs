@@ -1,5 +1,6 @@
 using GameExeTranslation.Core;
 using GameExeTranslation.TextFormat;
+using System.Security.Cryptography;
 using System.Windows.Forms;
 
 namespace GameExeTranslation
@@ -10,7 +11,9 @@ namespace GameExeTranslation
         private ExeSectorText exeSectorText;
         private Project project;
         private string projectPath;
-        BindingSource bs = new BindingSource();
+        private BindingSource bs = new BindingSource();
+
+        private const string APP_TITLE = "GameExeTranslation";
 
         public FrmMain()
         {
@@ -32,6 +35,9 @@ namespace GameExeTranslation
                 ofd.RestoreDirectory = true;
                 if (ofd.ShowDialog() == DialogResult.OK)
                 {
+                    MnuSave.Enabled = true;
+                    MnuSaveEXE.Enabled = true;
+
                     exeHandler = new ExeHandler();
                     CmbWriteSector.Items.Clear();
                     bs.DataSource = null;
@@ -40,12 +46,14 @@ namespace GameExeTranslation
                         case ".exe":
                             exeHandler.ExePath = ofd.FileName;
                             project = new Project();
+                            Text = APP_TITLE + " - New Project";
                             break;
                         case ".json":
                             project = Project.LoadJson(ofd.FileName);
                             exeHandler.ExePath = project.ExePath;
                             projectPath = ofd.FileName;
                             project.ExeSectorTextList.ForEach(p => CmbWriteSector.Items.Add(p));
+                            Text = APP_TITLE + " - "+Path.GetFileName(ofd.FileName);
                             break;
                     }
 
@@ -89,6 +97,8 @@ namespace GameExeTranslation
 
             if (CmbWriteSector.Items.Count == 0)
                 CmbWriteSector.Enabled = false;
+            else
+                CmbWriteSector.SelectedIndex = 0;
         }
 
         private void CmbWriteSector_EnabledChanged(object sender, EventArgs e)
@@ -124,6 +134,9 @@ namespace GameExeTranslation
             DgvTranslationTable.Columns[1].Width = 300;
             DgvTranslationTable.Columns[2].Width = 300;
             DgvTranslationTable.Columns.RemoveAt(4);
+            DgvTranslationTable.Columns[1].HeaderText = "Translated Text";
+            DgvTranslationTable.Columns[2].HeaderText = "Original Text (Optional)";
+            DgvTranslationTable.Columns[3].HeaderText = "Is Full-Width Encode";
 
             DataGridViewComboBoxColumn combocol = new DataGridViewComboBoxColumn();
             combocol.Name = "Original Sector";
@@ -157,6 +170,9 @@ namespace GameExeTranslation
                         project.ExeSectorTextList.AddRange(CmbWriteSector.Items.Cast<ExeSectorText>());
                         projectPath = sfd.FileName;
                         project.SaveJson(sfd.FileName);
+                        Text = APP_TITLE + " - " + Path.GetFileName(sfd.FileName);
+                        MessageBox.Show("Project correctly saved at:\n"+sfd.FileName, "Information",
+                            MessageBoxButtons.OK, MessageBoxIcon.Information);
                     }
                 }
             }
@@ -165,12 +181,10 @@ namespace GameExeTranslation
                 project.ExeSectorTextList.Clear();
                 project.ExeSectorTextList.AddRange(CmbWriteSector.Items.Cast<ExeSectorText>());
                 project.SaveJson(projectPath);
+                Text = APP_TITLE + " - " + Path.GetFileName(projectPath);
+                MessageBox.Show("Project correctly saved at:\n" + projectPath, "Information",
+                            MessageBoxButtons.OK, MessageBoxIcon.Information);
             }
-        }
-
-        private void DgvTranslationTable_Leave(object sender, EventArgs e)
-        {
-            
         }
 
         private void MnuFile_Click(object sender, EventArgs e)
@@ -182,6 +196,21 @@ namespace GameExeTranslation
         {
             MnuSave_Click(sender, e);
             exeHandler.SaveTranslatedExe(project.ExeSectorTextList);
+        }
+
+        private void MnuClose_Click(object sender, EventArgs e)
+        {
+            Close();
+        }
+
+        private void FrmMain_FormClosing(object sender, FormClosingEventArgs e)
+        {
+            DialogResult res = MessageBox.Show("Do you want to close the application?\nAll unsaved data will be lost!\n",
+                "Information",MessageBoxButtons.YesNo,MessageBoxIcon.Information);
+            if (res == DialogResult.No)
+            {
+                e.Cancel = true;
+            }
         }
     }
 }

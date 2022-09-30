@@ -29,6 +29,7 @@
         private void InitializeComponent()
         {
             this.components = new System.ComponentModel.Container();
+            System.ComponentModel.ComponentResourceManager resources = new System.ComponentModel.ComponentResourceManager(typeof(FrmMain));
             this.CmbWriteSector = new System.Windows.Forms.ComboBox();
             this.DgvTranslationTable = new System.Windows.Forms.DataGridView();
             this.ChklReadableSector = new System.Windows.Forms.CheckedListBox();
@@ -43,14 +44,11 @@
             this.MnuClose = new System.Windows.Forms.ToolStripMenuItem();
             this.BtnAddSector = new System.Windows.Forms.Button();
             this.BtnDeleteSector = new System.Windows.Forms.Button();
-            this.exeTextLineBindingSource = new System.Windows.Forms.BindingSource(this.components);
-            this.exeTextLineBindingSource1 = new System.Windows.Forms.BindingSource(this.components);
-            this.exeTextLineBindingSource2 = new System.Windows.Forms.BindingSource(this.components);
+            this.contextMenuStrip1 = new System.Windows.Forms.ContextMenuStrip(this.components);
+            this.toolTip1 = new System.Windows.Forms.ToolTip(this.components);
+            this.LabHelp = new System.Windows.Forms.Label();
             ((System.ComponentModel.ISupportInitialize)(this.DgvTranslationTable)).BeginInit();
             this.menuStrip1.SuspendLayout();
-            ((System.ComponentModel.ISupportInitialize)(this.exeTextLineBindingSource)).BeginInit();
-            ((System.ComponentModel.ISupportInitialize)(this.exeTextLineBindingSource1)).BeginInit();
-            ((System.ComponentModel.ISupportInitialize)(this.exeTextLineBindingSource2)).BeginInit();
             this.SuspendLayout();
             // 
             // CmbWriteSector
@@ -62,6 +60,8 @@
             this.CmbWriteSector.Name = "CmbWriteSector";
             this.CmbWriteSector.Size = new System.Drawing.Size(228, 23);
             this.CmbWriteSector.TabIndex = 0;
+            this.toolTip1.SetToolTip(this.CmbWriteSector, "Sectors you use for translated text.\r\nWrite in the box to rename the current sele" +
+        "cted box.");
             this.CmbWriteSector.SelectedIndexChanged += new System.EventHandler(this.CmbWriteSector_SelectedIndexChanged);
             this.CmbWriteSector.TextUpdate += new System.EventHandler(this.CmbWriteSector_TextUpdate);
             this.CmbWriteSector.EnabledChanged += new System.EventHandler(this.CmbWriteSector_EnabledChanged);
@@ -76,7 +76,6 @@
             this.DgvTranslationTable.RowTemplate.Height = 25;
             this.DgvTranslationTable.Size = new System.Drawing.Size(984, 319);
             this.DgvTranslationTable.TabIndex = 1;
-            this.DgvTranslationTable.Leave += new System.EventHandler(this.DgvTranslationTable_Leave);
             // 
             // ChklReadableSector
             // 
@@ -87,12 +86,15 @@
             this.ChklReadableSector.Name = "ChklReadableSector";
             this.ChklReadableSector.Size = new System.Drawing.Size(180, 130);
             this.ChklReadableSector.TabIndex = 2;
+            this.toolTip1.SetToolTip(this.ChklReadableSector, "Select the sectors you want to replace the text on new exe.\r\n.rdatasector  for ex" +
+        "ample, commonly use .data sector for use text in-game,\r\nso you should check that" +
+        " sector in the list.");
             this.ChklReadableSector.ItemCheck += new System.Windows.Forms.ItemCheckEventHandler(this.ChklReadableSector_ItemCheck);
             // 
             // label1
             // 
             this.label1.AutoSize = true;
-            this.label1.Location = new System.Drawing.Point(93, 26);
+            this.label1.Location = new System.Drawing.Point(103, 26);
             this.label1.Name = "label1";
             this.label1.Size = new System.Drawing.Size(92, 15);
             this.label1.TabIndex = 3;
@@ -101,11 +103,11 @@
             // label2
             // 
             this.label2.AutoSize = true;
-            this.label2.Location = new System.Drawing.Point(326, 26);
+            this.label2.Location = new System.Drawing.Point(298, 24);
             this.label2.Name = "label2";
-            this.label2.Size = new System.Drawing.Size(96, 15);
+            this.label2.Size = new System.Drawing.Size(162, 15);
             this.label2.TabIndex = 4;
-            this.label2.Text = "Readable Sectors";
+            this.label2.Text = "Readable Sectors For Pointers";
             // 
             // menuStrip1
             // 
@@ -139,6 +141,7 @@
             // 
             // MnuSave
             // 
+            this.MnuSave.Enabled = false;
             this.MnuSave.Name = "MnuSave";
             this.MnuSave.Size = new System.Drawing.Size(193, 22);
             this.MnuSave.Text = "Save Project";
@@ -146,6 +149,7 @@
             // 
             // MnuSaveEXE
             // 
+            this.MnuSaveEXE.Enabled = false;
             this.MnuSaveEXE.Name = "MnuSaveEXE";
             this.MnuSaveEXE.Size = new System.Drawing.Size(193, 22);
             this.MnuSaveEXE.Text = "Save and Generate EXE";
@@ -161,6 +165,7 @@
             this.MnuClose.Name = "MnuClose";
             this.MnuClose.Size = new System.Drawing.Size(193, 22);
             this.MnuClose.Text = "Close";
+            this.MnuClose.Click += new System.EventHandler(this.MnuClose_Click);
             // 
             // BtnAddSector
             // 
@@ -170,6 +175,8 @@
             this.BtnAddSector.Size = new System.Drawing.Size(111, 46);
             this.BtnAddSector.TabIndex = 6;
             this.BtnAddSector.Text = "Add Writable Sector";
+            this.toolTip1.SetToolTip(this.BtnAddSector, "Create a new sector.\r\nEach one can use different configuration on readable sector" +
+        "s.");
             this.BtnAddSector.UseVisualStyleBackColor = true;
             this.BtnAddSector.Click += new System.EventHandler(this.BtnAddSector_Click);
             // 
@@ -181,26 +188,32 @@
             this.BtnDeleteSector.Size = new System.Drawing.Size(111, 46);
             this.BtnDeleteSector.TabIndex = 7;
             this.BtnDeleteSector.Text = "Delete Writable Sector";
+            this.toolTip1.SetToolTip(this.BtnDeleteSector, "Permanently erase current selected sector.");
             this.BtnDeleteSector.UseVisualStyleBackColor = true;
             this.BtnDeleteSector.Click += new System.EventHandler(this.BtnDeleteSector_Click);
             // 
-            // exeTextLineBindingSource
+            // contextMenuStrip1
             // 
-            this.exeTextLineBindingSource.DataSource = typeof(GameExeTranslation.TextFormat.ExeTextLine);
+            this.contextMenuStrip1.Name = "contextMenuStrip1";
+            this.contextMenuStrip1.Size = new System.Drawing.Size(61, 4);
             // 
-            // exeTextLineBindingSource1
+            // LabHelp
             // 
-            this.exeTextLineBindingSource1.DataSource = typeof(GameExeTranslation.TextFormat.ExeTextLine);
-            // 
-            // exeTextLineBindingSource2
-            // 
-            this.exeTextLineBindingSource2.DataSource = typeof(GameExeTranslation.TextFormat.ExeTextLine);
+            this.LabHelp.AutoSize = true;
+            this.LabHelp.Font = new System.Drawing.Font("Segoe UI", 17.25F, System.Drawing.FontStyle.Bold, System.Drawing.GraphicsUnit.Point);
+            this.LabHelp.Location = new System.Drawing.Point(959, 147);
+            this.LabHelp.Name = "LabHelp";
+            this.LabHelp.Size = new System.Drawing.Size(24, 31);
+            this.LabHelp.TabIndex = 8;
+            this.LabHelp.Text = "?";
+            this.toolTip1.SetToolTip(this.LabHelp, resources.GetString("LabHelp.ToolTip"));
             // 
             // FrmMain
             // 
             this.AutoScaleDimensions = new System.Drawing.SizeF(7F, 15F);
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
             this.ClientSize = new System.Drawing.Size(1008, 510);
+            this.Controls.Add(this.LabHelp);
             this.Controls.Add(this.BtnDeleteSector);
             this.Controls.Add(this.BtnAddSector);
             this.Controls.Add(this.label2);
@@ -209,16 +222,16 @@
             this.Controls.Add(this.DgvTranslationTable);
             this.Controls.Add(this.CmbWriteSector);
             this.Controls.Add(this.menuStrip1);
+            this.FormBorderStyle = System.Windows.Forms.FormBorderStyle.FixedSingle;
             this.MainMenuStrip = this.menuStrip1;
+            this.MaximizeBox = false;
             this.Name = "FrmMain";
             this.StartPosition = System.Windows.Forms.FormStartPosition.CenterScreen;
             this.Text = "GameExeTranslator";
+            this.FormClosing += new System.Windows.Forms.FormClosingEventHandler(this.FrmMain_FormClosing);
             ((System.ComponentModel.ISupportInitialize)(this.DgvTranslationTable)).EndInit();
             this.menuStrip1.ResumeLayout(false);
             this.menuStrip1.PerformLayout();
-            ((System.ComponentModel.ISupportInitialize)(this.exeTextLineBindingSource)).EndInit();
-            ((System.ComponentModel.ISupportInitialize)(this.exeTextLineBindingSource1)).EndInit();
-            ((System.ComponentModel.ISupportInitialize)(this.exeTextLineBindingSource2)).EndInit();
             this.ResumeLayout(false);
             this.PerformLayout();
 
@@ -239,9 +252,9 @@
         private ToolStripMenuItem MnuClose;
         private Button BtnAddSector;
         private Button BtnDeleteSector;
-        private BindingSource exeTextLineBindingSource;
-        private BindingSource exeTextLineBindingSource1;
-        private BindingSource exeTextLineBindingSource2;
         private ToolStripMenuItem MnuSaveEXE;
+        private ContextMenuStrip contextMenuStrip1;
+        private ToolTip toolTip1;
+        private Label LabHelp;
     }
 }
